@@ -9,7 +9,7 @@
 6. [The output](README.md#the-output)
 7. [Instructions](README.md#instructions)
 8. [Handling nuances](README.md#handling-nuances)
-9. [Where it won't work](README.md#where-it-won't-work)
+9. [Where it will fail](README.md#where-it-will-fail)
 
 ## Problem
 The federal government provides a way for consumers to file complaints against companies regarding different financial products, such as payment problems with a credit card or debt collection tactics. This challenge is about identifying the number of complaints filed and how they're spread across different companies. 
@@ -36,7 +36,7 @@ Following are some of the assumptions my code makes in order to perform this tas
 * The input file is in the same format as the sample input described in the section [Input Dataset](README.md#input-dataset). This means that my code expects each input file to have a header. It also expects each column to be in the same order as the sample input above.
 * The date is of the form "YYYY-MM-DD". In general, this code will work for any input where the first 4 characters of the column `Date received` represent the year.
 * All the `Product` and `Company` names are case insesitive. For example, "Acme", "ACME", and "acme" would represent the same company.
-* The column `Product` is a categorical variable and only takes in values described as per the [Consumer Finance Protection Bureau's technical documentation](https://cfpb.github.io/api/ccdb/fields.html). This wouldn't neccessarily be a problem though. See section [Where it won't work](README.md#where-it-won't-work) to see cases where this code might fail. 
+* The column `Product` is a categorical variable and only takes in values described as per the [Consumer Finance Protection Bureau's technical documentation](https://cfpb.github.io/api/ccdb/fields.html). This wouldn't neccessarily be a problem though. See section [Where it will fail](README.md#where-it-will-fail) to see cases where this code might fail. 
 
 ## How to run
 
@@ -89,6 +89,23 @@ debt collection,2019,1,1,100
 Notice that because `debt collection` was only listed for 2019 and not 2020, the output file only has a single entry for debt collection. Also, notice that when a product has a comma (`,`) in the name, the name is enclosed by double quotation marks (`"`). Finally, notice that percentages are listed as numbers and do not have `%` in them.
 
 ## Handling nuances
+#### Case Insensitivity
+My code converts all names (`Product` and `Company` to lowercase while reading from the file thus removing and inconsistency in the text case)
 
-## Where it won't work
+#### Scalability
+This code reads input line by line and thus can handle very large amount of data. But the processing time will increase linearly with increase in amount of data. When working with distributed systems, we could improve performance by using techniques such as a mapper-reducer mechanism (See next sub-section Performance).
 
+#### Performance
+This code goes through the input data only once and all the processing is done within the same loop. Thus everything is done in a single pass. 
+
+Most of the code is simply counting the number of complaints for a given combination of `Product-Year-company` and since this can be done parallelly for different chunks of input data, we could deploy a mapper-reducer framework  if we had a distributed environment. We could have multiple mappers working with different chunks of data and returning the information with `Product-Year` as key and `Company,1` as Value. And the reducer could then collate this information to get the desired output. 
+
+## Where it will fail
+
+I have identified a scenario where my code wouldn't work as expected and result in unexpected behavior. This is a very unlikely scenario and would not even affect our use case. But it is always good to take note of these cases.
+
+In `all_complaints` dictionary, I am using a concatenated value of `Product, Year and company` as the key. I know that the column `Product` is a categorical variable and can only take certain values as specified in the documentation. But if it were allowd to take any values, the concatenation of these 3 columns may not produce a unique key. For ex if the Product was A2018, year was 2019 and company was B, the key would be A20182019B. We would get the exact same key if the Product were A, year was 2018 and comany was 2019B. As we would imagine, this is a very unlikely scenario as the Product/Company name would have to have such absurd names and in our case won't even happen as Product is only allowed to take certain values.
+
+This could be avoided by using a nested dictionary structure for `all_complaints` where the key of outer dictionary would be `Product`, then the key of the intermediate dictionary would be `Year` and finally that for the innermost dictionary would be `Company`. In essence we would replace `all_complaints[Product+year+company]` by `all_complaints[Product][year][company]`.
+
+The reason I didnt use this structure is because as discussed above, this scenario is not going to affect our use case and this would have made the code less readable. 
