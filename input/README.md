@@ -1,2 +1,2 @@
-# insight-DE-consumer_complaints
-My submission for Insight Data Engineering coding challenge
+# Input directory
+This is the directory where input file is kept

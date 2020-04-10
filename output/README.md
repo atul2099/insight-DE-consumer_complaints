@@ -1,2 +1,2 @@
-# insight-DE-consumer_complaints
-My submission for Insight Data Engineering coding challenge
+# Output directory
+This is the directory where the output files get created
